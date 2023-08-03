@@ -19,6 +19,3 @@ from django.urls import path
 urlpatterns = [
     path('admin/', admin.site.urls),
 ]
-
-#Trying flake8 linting
-one=1
