@@ -1,4 +1,10 @@
 """Views for the recipe APIs"""
+from drf_spectacular.utils import (
+    extend_schema_view,
+    extend_schema,
+    OpenApiParameter,
+    OpenApiTypes,
+)
 
 from rest_framework import (
     viewsets,
@@ -14,6 +20,23 @@ from core.models import Recipe, Tag, Ingredient
 from recipe import serializers
 
 
+@extend_schema_view(
+    list=extend_schema(
+        paramameters=(
+            OpenApiParameter(
+                'tags',
+                OpenApiTypes.STR,
+                description='Comma separated list of tags IDs to filter'
+            ),
+            OpenApiParameter(
+                'ingredients',
+                OpenApiTypes.STR,
+                description='Comma separated list of ingredients IDS to filter'
+            )
+        )
+
+    )
+)
 class RecipeViewSet(viewsets.ModelViewSet):
     """View for manage recipe API's"""
     serializer_class = serializers.RecipeDetailSerializer
@@ -21,9 +44,26 @@ class RecipeViewSet(viewsets.ModelViewSet):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
+    def _params_to_ints_(self, qs):
+        """Convert a list of strings to integers.
+            Ex.'1,2,3' => [1,2,3] """
+        return [int(str_id) for str_id in qs.split(',')]
+
     def get_queryset(self):
         """Rewrited method, retrieve recipies for authenticated user."""
-        return self.queryset.filter(user=self.request.user).order_by('-id')
+        tags = self.request.query_params.get('tags')
+        ingredients = self.request.query_params.get('ingredients')
+        queryset = self.queryset
+        if tags:
+            tags_id = self._params_to_ints_(tags)
+            queryset = queryset.filter(tags__id__in=tags_id)
+        if ingredients:
+            ingredients_id = self._params_to_ints_(ingredients)
+            queryset = queryset.filter(ingredients__id__in=ingredients_id)
+
+        return queryset.filter(
+            user=self.request.user
+        ).order_by('-id').distinct()
 
     def get_serializer_class(self):
         """Return the serializer class for request"""
